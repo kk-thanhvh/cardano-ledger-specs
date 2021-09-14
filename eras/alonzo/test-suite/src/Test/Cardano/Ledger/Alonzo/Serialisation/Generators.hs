@@ -26,8 +26,6 @@ import Cardano.Ledger.Alonzo.Scripts
     Prices (..),
     Script (..),
     Tag (..),
-    alwaysFails,
-    alwaysSucceeds,
   )
 import Cardano.Ledger.Alonzo.Tx
 import Cardano.Ledger.Alonzo.TxBody
@@ -47,6 +45,7 @@ import Data.Text (pack)
 import Numeric.Natural (Natural)
 import Plutus.V1.Ledger.Api (defaultCostModelParams)
 import qualified PlutusTx as Plutus
+import Test.Cardano.Ledger.Alonzo.Scripts (alwaysFails, alwaysSucceeds)
 import Test.Cardano.Ledger.Shelley.ConcreteCryptoTypes (Mock)
 import Test.Cardano.Ledger.Shelley.Serialisation.EraIndepGenerators ()
 import Test.Cardano.Ledger.ShelleyMA.Serialisation.Generators (genMintValues)
@@ -176,10 +175,11 @@ instance Mock c => Arbitrary (ValidatedTx (AlonzoEra c)) where
       <*> arbitrary
 
 instance Mock c => Arbitrary (Script (AlonzoEra c)) where
-  arbitrary =
+  arbitrary = do
+    lang <- arbitrary -- The language is not present in the Script serialization
     frequency
-      [ (1, pure (alwaysSucceeds 1)),
-        (1, pure (alwaysFails 1)),
+      [ (1, pure (alwaysSucceeds lang 1)),
+        (1, pure (alwaysFails lang 1)),
         (10, TimelockScript <$> arbitrary)
       ]
 
@@ -187,7 +187,7 @@ instance Mock c => Arbitrary (Script (AlonzoEra c)) where
 --
 
 instance Arbitrary Language where
-  arbitrary = elements [PlutusV1]
+  arbitrary = elements (Set.toList nonNativeLanguages)
 
 instance Arbitrary Prices where
   arbitrary = Prices <$> arbitrary <*> arbitrary
