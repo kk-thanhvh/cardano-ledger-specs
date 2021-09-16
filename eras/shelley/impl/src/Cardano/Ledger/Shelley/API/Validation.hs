@@ -35,6 +35,7 @@ import Cardano.Ledger.Shelley.BlockChain (Block (..))
 import Cardano.Ledger.Shelley.LedgerState (NewEpochState (..))
 import qualified Cardano.Ledger.Shelley.LedgerState as LedgerState
 import Cardano.Ledger.Shelley.PParams (PParams' (..))
+import Cardano.Ledger.Shelley.Rules.Bbody (AnnotatedBlock (..))
 import qualified Cardano.Ledger.Shelley.Rules.Bbody as STS
 import qualified Cardano.Ledger.Shelley.Rules.Chain as STS
 import Cardano.Ledger.Shelley.Rules.EraMapping ()
@@ -293,6 +294,7 @@ annotateBlock globals state _blk@(Block' bheader _ _) = do
             abSlotNo = slotNo,
             abEpochSlot = runIdentity $ (epochInfoFirst $ epochInfo globals) epochNo,
             abTimeStamp = runIdentity $ epochInfoSlotToUTCTime (epochInfo globals) (systemStart globals) slotNo,
-            abEpochSize = runReader (epochInfoSize (epochInfo globals) epochNo) globals
+            abEpochSize = runReader (epochInfoSize (epochInfo globals) epochNo) globals,
+            abTxs = undefined -- TODO
           }
   pure ann
