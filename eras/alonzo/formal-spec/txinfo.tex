@@ -3,5 +3,256 @@
 
 This section specifies exactly what parts of the transaction and ledger
 state are used by the $\fun{txInfo}$ function to construct the
-$\TxInfo$ term that gets passed as an
-argument to the Plutus interpreter.
+$\TxInfo$ element that, together with the script purpose for which the script
+is being run, gets passed as a $\Data$ argument to the Plutus interpreter.
+
+The functions in Figure \ref{fig:txinfo-funcs} are needed to build a $\Data$ summary of a transaction.
+In this Section we use the notation $\type{P.PlutusType}$ for the Plutus type
+$\type{PlutusType}$ (specified in the Plutus library) to distinguish it from ledger types.
+The type $\type{P.ScriptContext}$ represents
+the script context. The function $\type{P.toData}$ converts a Plutus-library element
+into a $\Data$ element.
+
+$\fun{txInfo}$ summarizes all the necessary transaction and chain state information
+    that needs to be passed to the script interpreter. Below, we specify how to
+    represent relevant transaction data in terms of a Plutus
+    library-defined type. The $\fun{txInfo}$ function builds this representation.
+
+    The $\Language$ argument
+    is required because different languages have different expectations of the
+    format and contents of the $\TxInfo$ summary.
+
+    Note that $\fun{txInfo}$ has a $\UTxO$ argument. Even though the full ledger UTxO
+    is passed to it, we define this function in such a way that the only
+    entries in the ledger UTxO map that a Plutus script
+    actually sees via the argument $\fun{txInfo}$ builds are the ones corresponding to the transaction
+    inputs (ie. its realized inputs). This is done in order to maintain the locality of
+    evaluation. For details, see the deterministic script evaluation property~\ref{prop:fixed-inputs}.
+
+    $\fun{valContext}$ constructs the \emph{validation context}, also referred to as the
+    script context. A validation context is
+    a $\Data$ element which encodes both the summary of the transaction and ledger information
+    (this is supplied by the $\fun{txInfo}$ summarization function), and the script purpose.
+
+\begin{figure}
+  \emph{Plutus Library Types and Functions}
+  %
+  \begin{align*}
+      &\type{P.ScriptContext} ~=~ \type{P.TxInfo} \times \type{P.ScriptPurpose} \\
+      &\text{Plutus Script Context}
+      \nextdef
+      &\fun{P.toData} \in \type{P.T} \to \Data \\
+      &\text{Constructs a Data element from a Plutus-library-type element of type P.T}
+  \end{align*}
+    \emph{Ledger Functions}
+    %
+    \begin{align*}
+        &\fun{txInfo} \in \Language \to \PParams \to \UTxO \to \Tx \to \TxInfo \\
+        &\text{Summarizes transaction data}
+        \nextdef
+        &\fun{valContext} \in \type{P.TxInfo} \to \ScriptPurpose \to \Data \\
+        &\fun{valContext}~txinfo~sp = \fun{P.toData}~(txinfo,~sp_{P})
+        &\text{Pairs transaction data with a script purpose}
+    \end{align*}
+  \caption{Transaction Summarization Functions}
+  \label{fig:txinfo-funcs}
+\end{figure}
+
+We give the Plutus types corresponding to the ledger counterparts in Figures \ref{fig:txinfo-types}
+and \ref{fig:txinfo-types-two}. Details for types that have non-identity translation
+functions between ledger and Plutus types are in Figure \ref{fig:txinfo-translations}.
+The non-identity translation functions are specified in the comments of the $\TxInfo$ type
+definition.
+
+Certain types, such as the bootstrap address type, cannot be passed to scripts, and
+are therefore translated as $\Nothing$. Any type that cannot be fully translated
+as a Plutus-library type is also translated to $\Nothing$.
+For example, since a bootstrap address $a \in \AddrBS$
+is not translatable, neither is $a\in\Addr$, and $(a,\wcard,\wcard) \in \TxOut$
+also translates to $\Nothing$.
+
+If $t$ is a term of type $LT$, then we denote the translated term of type $P.LT$ by $t_P$.
+
+Translating certain kinds of certificates drops the data in the
+certificates, in particular, the $\DCertGen$ and $\DCertMir$ ones.
+
+The constant returned by $\fun{slotToPOSIXTime}$,
+
+\[\type{ResolutionConstant}\]
+
+Is the maximum possible value of a POSIX time interval. This will be adjusted in
+future eras to reflect the time being translated.
+
+Note that the $\Ptr$ addresses translated and passed to Plutus scripts are
+not resolvable to their corresponding key or script staking credencials. This
+is because doing a lookup in the resolution map, which part of the ledger state,
+could break determinism.
+
+During the transaction encoding and decoding process, a transaction is discarded if it is not
+encoded correctly. This includes, in particular, a check that $\Script$ and $\Data$
+elements contained in the transaction are well-formed. Functions that perfom these checks are
+in Figure \ref{fig:data-script-check}. The $\fun{P.validateScript}$ function
+is a Plutus-library function which checks whether a bytestring represents a
+Plutus script.
+
+\begin{figure*}[htb]
+  \emph{Hash Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \ScriptHash & \type{P.ValidatorHash} \\
+      \KeyHash & \type{P.PubKeyHash} \\
+      \DataHash & \type{P.DatumHash} \\
+      \TxId & \type{P.TxId} \\
+    \end{array}
+  \end{equation*}
+  \emph{Transaction Input, ie. Output Reference}  \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \TxIn & \type{P.TxOutRef} \\
+    \end{array}
+  \end{equation*}
+  \emph{Credential Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \Ptr & \type{P.StakingPtr} \\
+      \Credential & \type{P.Credential} \\
+      \Credential & \type{P.StakingHash} \\
+      \StakeCredential & \type{P.StakingCredential} \\
+    \end{array}
+  \end{equation*}
+  \emph{Credentials and Withdrawals} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \Wdrl & \type{P.StakingCredential} \times \Integer \\
+      \PolicyID & \type{P.CurrencySymbol} \\
+      \AssetName & \type{P.TokenName} \\
+    \end{array}
+  \end{equation*}
+  \emph{Certificate Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \DCert & \type{P.DCert} \\
+      \DCertRegKey & \type{P.DCertDelegRegKey} \\
+      \DCertDeRegKey & \type{P.DCertDelegDeRegKey} \\
+      \DCertDeleg & \type{P.DCertDelegDelegate} \\
+      \DCertRetirePool & \type{P.DCertPoolRetire} \\
+    \end{array}
+  \end{equation*}
+  \emph{Data-dropping Certificate Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \DCertGen & \type{P.DCertGenesis} \\
+      \DCertMir & \type{P.DCertMir} \\
+    \end{array}
+  \end{equation*}
+  \caption{TxInfo and Constituent Types}
+  \label{fig:txinfo-types}
+\end{figure*}
+
+\begin{figure*}[htb]
+  \emph{Script Purpose Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \mathsf{Cert} & \type{P.Certifying} \\
+      \mathsf{Rwrd} & \type{P.Rewarding} \\
+      \mathsf{Mint} & \type{P.Minting} \\
+      \mathsf{Spend} & \type{P.Spending} \\
+    \end{array}
+  \end{equation*}
+  \emph{Execution Budget Types} \\
+  \begin{equation*}
+    \begin{array}{r@{~~~}l}
+      \Integer & \type{P.ExCPU} \\
+      \Integer  & \type{P.ExMemory}\\
+      \ExUnits & \type{P.ExBudget}  \\
+    \end{array}
+  \end{equation*}
+    \begin{align*}
+    & \emph{TxInfo} \\
+    & \TxInfo = \\
+      & ~~~~ \seqof{\type{P.TxInInfo^?}}  % & \text{inputs} \\ %\type{P.txInfoInputs} &
+      & \text{realized inputs (built by $\fun{txInfoIn}$)} \\
+      & ~~~~ \times \seqof{\type{P.TxOut^?}}
+      & \text{outputs} \\ %\type{P.txInfoOutputs}
+      & ~~~~ \times \type{P.Value}
+      & \text{fee, translated by $\fun{transValue}\circ\fun{inject}$} \\ %= transValue (inject @(Mary.Value (Crypto era)) fee), \type{P.txInfoFee}
+      & ~~~~ \times \type{P.Value}
+      & \text{mint field, translated by $\fun{transValue}$} \\ % = transValue forge, \type{P.txInfoMint}
+      & ~~~~ \times \seqof{\type{P.DCert}}
+      & \text{list of certificates} \\ %= foldr (\c ans \to transDCert c : ans) [] (certs' tbody), \type{P.txInfoDCert}
+      & ~~~~ \times (\type{P.StakingCredential} \times \Integer)
+      & \text{reward withdrawal (credential and reward amount)} \\ % = Map.toList (transWdrl (wdrls' tbody)), \type{P.txInfoWdrl}
+      & ~~~~ \times \type{P.POSIXTimeRange}
+      & \text{validity POSIX time range, translated by $\fun{transVITime}$} \\ % = timeRange, \type{P.txInfoValidRange}
+      & ~~~~ \times \seqof{\type{P.PubKeyHash}}
+      & \text{hashes of keys whose signature are required} \\ % = map transKeyHash (Set.toList (reqSignerHashes' tbody)), \type{P.txInfoSignatories}
+      & ~~~~ \times \seqof{(\DataHash \times \Data)}
+      & \text{list of pairs of datum hashes and their datum preimages} \\ % = map transDataPair datpairs, \type{P.txInfoData}
+      & ~~~~ \times \type{P.TxId}  % =  (transSafeHash (hashAnnotated @(Crypto era) tbody)) \type{P.txInfoId}
+      & \text{transaction ID}
+  \end{align*}
+  \caption{TxInfo and Constituent Types}
+  \label{fig:txinfo-types-two}
+\end{figure*}
+
+\begin{figure*}[htb]
+  \begin{align*}
+    & \fun{transAddr} \in \Addr  \to  \type{P.Address} \\
+    & \fun{transAddr} ~a = \begin{cases}
+      \Nothing & \text{if}~a \in \AddrBS \\
+      (ob,~st) & \text{if}~a = (\wcard, ob_P, st_P)
+    \end{cases} \\
+    & \text{Address translation}
+    \nextdef
+    & \fun{transValue} \in \Value \to \type{P.Value} \\
+    & \fun{transValue}~ (c,~ mp) = \{~ pid_P\mapsto (aid_P \mapsto q_P) ~\mid~ pid \mapsto (aid \mapsto q) \in mp ~\} \\
+    & ~~~~\cup \{~\type{P.adaSymbol}\mapsto (\type{P.adaToken} \mapsto c) ~\} \\
+    & \text{Value translation}
+    \nextdef
+    & \fun{transDCert} \in \DCertRegPool \to \type{P.DCertPoolRegister} \\
+    & \fun{transDCert}~\var{pool} = (\fun{poolId}~\var{pool},~\fun{poolVrf}~\var{pool}) \\
+    & \text{Pool registration certificate translation}
+    \nextdef
+    & \fun{txInfoIn} \in \UTxO \to \TxIn \to \type{P.TxInInfo} \\
+    & \fun{txInfoIn}~ utxo~ txin = \begin{cases}
+        (\var{txin}_P, \var{txout}_P) & \text{if $(\var{txin}\mapsto\var{txout})\in\var{utxo}$} \\
+        \Nothing & \text{otherwise}
+      \end{cases} \\
+    & \text{Builds a Plutus realized input}
+    \nextdef
+    & \fun{transVITime} \in \PParams \to \EpochInfo \to \SystemStart \to \ValidityInterval \to \type{P.POSIXTimeRange} \\
+    & \fun{transVITime} ~pp ~ei~ sysS~ (vs,~ vf) = \\
+    &  ~~~~ \begin{cases}
+        \type{P.always} & \text{if } vs = \Nothing ~\wedge~ vf = \Nothing \\
+        \type{P.to}~(\fun{slotToPOSIXTime}~pp~ei~sysS~vf) & \text{if } vs = \Nothing ~\wedge~ vf \neq \Nothing \\
+        \type{P.from}~(\fun{slotToPOSIXTime}~pp~ei~sysS~vs) & \text{if } vs \neq \Nothing ~\wedge~ vf = \Nothing \\
+        (\fun{slotToPOSIXTime}~pp~ei~sysS~vs,~\fun{slotToPOSIXTime}~pp~ei~sysS~vf) & \text{if } vs \neq \Nothing ~\wedge~ vf \neq \Nothing \\
+      \end{cases} \\
+      & ~~~~\where \\
+      & ~~~~~~~~\fun{slotToPOSIXTime}~pp~ei~sysS~vs~=~\type{ResolutionConstant} \\
+    & \text{Translate validity interval to a POSIX time range}
+  \end{align*}
+  \caption{TxInfo Constituent Type Translation Functions}
+  \label{fig:txinfo-translations}
+\end{figure*}
+
+\begin{figure*}[htb]
+  \begin{align*}
+    & \fun{validPlutusdata} \in \type{P.Data} \to \Bool \\
+    & \fun{validPlutusdata}~ (\type{P.Constr} ~\wcard ~ds) = \wedge_{d\in ds} (\type{validPlutusdata}~d) \\
+    & \fun{validPlutusdata}~ (\type{P.Map}~ ds) = \wedge_{(x,y)\in ds} ((\type{validPlutusdata}~x) \wedge (\type{validPlutusdata}~x)) \\
+    & \fun{validPlutusdata} ~(\type{P.List}~ ds) =  \wedge_{d\in ds} (\type{validPlutusdata}~d) \\
+    & \fun{validPlutusdata}~ (\type{P.I}~ \wcard) = \True \\
+    & \fun{validPlutusdata}~ (\type{P.B}~ bs) = \fun{length} ~bs~ \leq~ 64 \\
+    & \text{Checks if a Data element is constructed correctly}
+    \nextdef
+    & \fun{validScript} \in \Script \to \Bool \\
+    & \fun{validScript} ~sc = \begin{cases}
+      \True & \text{if $sc \in \ScriptPhOne$} \\
+      \type{P.validateScript} ~sc & \text{if $sc \in \ScriptPhTwo$}
+    \end{cases} \\
+    & \text{Checks if a script is constructed correctly}
+  \end{align*}
+  \caption{Script and Data construction correctness checks}
+  \label{fig:data-script-check}
+\end{figure*}
