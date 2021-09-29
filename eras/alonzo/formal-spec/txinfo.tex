@@ -201,11 +201,11 @@ Plutus script.
 \begin{figure*}[htb]
   \begin{align*}
     & \fun{validPlutusdata} \in \type{P.Data} \to \Bool \\
-    & \fun{validPlutusdata}~ (\type{P.Constr} ~\wcard ~ds) = \wedge_{d\in ds} (\type{validPlutusdata}~d) \\
-    & \fun{validPlutusdata}~ (\type{P.Map}~ ds) = \wedge_{(x,y)\in ds} ((\type{validPlutusdata}~x) \wedge (\type{validPlutusdata}~x)) \\
-    & \fun{validPlutusdata} ~(\type{P.List}~ ds) =  \wedge_{d\in ds} (\type{validPlutusdata}~d) \\
+    & \fun{validPlutusdata}~ (\type{P.Constr} ~\wcard ~ds) = \bigwedge_{d\in ds} \type{validPlutusdata}~d \\
+    & \fun{validPlutusdata}~ (\type{P.Map}~ ds) = \bigwedge_{(x,y)\in ds} \type{validPlutusdata}~x \wedge \type{validPlutusdata}~y \\
+    & \fun{validPlutusdata} ~(\type{P.List}~ ds) =  \bigwedge_{d\in ds} \type{validPlutusdata}~d \\
     & \fun{validPlutusdata}~ (\type{P.I}~ \wcard) = \True \\
-    & \fun{validPlutusdata}~ (\type{P.B}~ bs) = \fun{length} ~bs~ \leq~ 64 \\
+    & \fun{validPlutusdata}~ (\type{P.B}~ bs) = \fun{length} ~bs \leq 64 \\
     & \text{Checks if a Data element is constructed correctly}
     \nextdef
     & \fun{validScript} \in \Script \to \Bool \\
@@ -265,20 +265,20 @@ $\fun{txInfo}$ summarizes all the necessary transaction and chain state informat
     \begin{align*}
         &\fun{txInfo} \in \Language \to \PParams \to \EpochInfo \to \SystemStart \to \UTxO \to \Tx \to \TxInfo \\
         &\fun{txInfo}~ pp~ ei~ sysS~ utxo~tx = \\
-        & ~~~~ (\{~\fun{txInfoIn}~\var{txin}~\mid~\var{txin}\in(\fun{txinputs}~tx)~\}, \\
+        & ~~~~ (\{~\fun{txInfoIn}~\var{utxo}~\var{txin}~\mid~\var{txin}\in \fun{txinputs}~tx~\}, \\
         & ~~~~ (\fun{txouts}~{tx})_P , \\
         & ~~~~ \fun{transValue}~(\fun{inject}~(\fun{txfee}~{tx})), \\
         & ~~~~ \fun{transValue}~(\fun{mint}~{tx}) , \\
         & ~~~~ (\fun{txcerts}~{tx})_P  , \\
         & ~~~~ (\fun{txwdrls}~{tx})_P  , \\
         & ~~~~ \fun{transVITime} ~pp ~ei~ sysS~ (\fun{txvldt}~tx)  , \\
-        & ~~~~ (\dom{\fun{txwitsVKey}~{tx}})_P , \\
+        & ~~~~ (\dom{(\fun{txwitsVKey}~{tx})})_P , \\
         & ~~~~ (\fun{txdats}~{tx})_P , \\
         & ~~~~ (\fun{txid}~{tx})_P) \\
         &\text{Summarizes transaction data}
         \nextdef
         &\fun{valContext} \in \type{P.TxInfo} \to \ScriptPurpose \to \Data \\
-        &\fun{valContext}~\var{txinfo}~\var{sp} = \fun{P.toData}~(txinfo,~sp_{P})
+        &\fun{valContext}~\var{txinfo}~\var{sp} = \fun{P.toData}~(txinfo,~sp_{P}) \\
         &\text{Pairs transaction data with a script purpose}
     \end{align*}
   \caption{Transaction Summarization Functions}
