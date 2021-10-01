@@ -86,9 +86,9 @@ These include:
 \begin{itemize}
 \item $\UTCTime$ is the system time (UTC time zone)
 \item $\EpochInfo$ is a consensus-level parameter needed to compute the system time. Within
-the Alonzo era, this is constant, with value $\mathsf{epochInfo}$
+the Alonzo era, this is constant, with value $\mathsf{ei}$
 \item $\SystemStart$ is another consensus-level parameter needed to compute the system time. Within
-the Alonzo era, this is also constant, with value $\mathsf{systemTime}$
+the Alonzo era, this is also constant, with value $\mathsf{sysSt}$
 \item
   $\ScriptPurpose$ is a sum type of all parts of a transaction that may
   require a script witness to validate. Note that this contains the data
@@ -139,10 +139,10 @@ the Alonzo era, this is also constant, with value $\mathsf{systemTime}$
       \var{tm}
       & \UTCTime
       & \text{System time (variable)} \\
-      \mathsf{epochInfo}
+      \mathsf{ei}
       & \EpochInfo
       & \text{Epoch info (constant within Alonzo)} \\
-      \mathsf{systemTime}
+      \mathsf{sysSt}
       & \SystemStart
       & \text{System start time (constant within Alonzo)}
     \end{array}
@@ -381,9 +381,9 @@ are caught during the application of the UTXOW rule (before these functions are 
         \epsilon  & \text{otherwise}
       \end{cases}
     \nextdef
-    & \fun{collectTwoPhaseScriptInputs} \in \PParams \to \Tx \to \UTxO \to \\
+    & \fun{collectTwoPhaseScriptInputs} \in \EpochInfo \to \SystemStart \to \PParams \to \Tx \to \UTxO \to \\
     & ~~~~ \seqof{(\Script \times \seqof{\Data} \times \ExUnits \times \CostMod)} \\
-    & \fun{collectTwoPhaseScriptInputs} ~\var{pp}~\var{tx}~ \var{utxo} ~=~ \\
+    & \fun{collectTwoPhaseScriptInputs} ~\var{ei}~\var{sysSt}~\var{pp}~\var{tx}~ \var{utxo} ~=~ \\
     & ~~\fun{toList} \{ (\var{script}, (\fun{getDatum}~tx~utxo~sp~++~[~\var{rdmr};~\fun{valContext}~\var{txinfo}~\var{sp}~]), \var{eu}, \var{cm}) \mid \\
     & ~~~~(\var{sp}, \var{scriptHash}) \in \fun{scriptsNeeded}~{utxo}~{(\txbody{tx})}, \\
     & ~~~~\var{scriptHash}\mapsto \var{script}\in \fun{txscripts}~(\fun{txwits}~tx), \\
@@ -391,7 +391,7 @@ are caught during the application of the UTXOW rule (before these functions are 
     & ~~~~\fun{language}~{script} \mapsto \var{cm} \in \fun{costmdls}~{pp}, \\
     & ~~~~\var{script} \in \ScriptPhTwo \} \\
     & \where \\
-    & ~~~~~~~ \var{txinfo}~=~\fun{txInfo}~(\fun{language}~{script})~{pp}~\var{utxo}~\var{tx} \\
+    & ~~~~~~~ \var{txinfo}~=~\fun{txInfo}~\var{ei}~\var{sysSt}~(\fun{language}~{script})~{pp}~\var{utxo}~\var{tx} \\
     \nextdef
     & \fun{evalScripts} \in \Tx \times \seqof{(\Script \times \seqof{\Data} \times \ExUnits \times \CostMod)} \to \IsValid \\
     & \fun{evalScripts}~\var{tx}~\epsilon = \True \\
@@ -480,6 +480,9 @@ are identical to the UTXO transition (Figure
 
 There are two rules, corresponding to the two possible state changes of the
 UTxO state in the UTXOS transition system (Figure~\ref{fig:rules:utxo-state-upd}).
+Note here that the constants $\mathsf{ei}$ and $\mathsf{sysSt}$ are available
+inside the definition of all ledger rules. They are supplied by the consensus
+layer.
 %
 In both cases, the $\fun{evalScripts}$ function is called upon to verify that the $\IsValid$
 tag has been applied correctly. The function $\fun{collectTwoPhaseScriptInputs}$ is used to build
@@ -509,7 +512,7 @@ In this case, the states of the UTxO, fee
     \inference[Scripts-Yes]
     {
     \var{txb}\leteq\txbody{tx} &
-    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\var{pp}~\var{tx}~\var{utxo}
+    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\mathsf{ei}~\mathsf{sysSt}~\var{pp}~\var{tx}~\var{utxo}
     \\
     ~
     \\
@@ -560,7 +563,7 @@ In this case, the states of the UTxO, fee
     \inference[Scripts-No]
     {
     \var{txb}\leteq\txbody{tx} &
-    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\var{pp}~\var{tx}~\var{utxo}
+    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\mathsf{ei}~\mathsf{sysSt}~\var{pp}~\var{tx}~\var{utxo}
     \\
     ~
     \\
@@ -641,7 +644,7 @@ UTXOS rule.
       \var{txb}\leteq\txbody{tx} &
       \fun{ininterval}~\var{slot}~(\fun{txvldt}~{tx}) &
       \hldiff{\var{(\wcard, i_f)}\leteq\fun{txvldt}~{tx}} \\~\\
-      \hldiff{\Nothing \notin \{\fun{txrdmrs}~\var{tx}, i_f\} ~\Rightarrow~ \fun{epochInfoSlotToUTCTime}~\mathsf{epochInfo}~\mathsf{systemTime}~i_f \neq \Nothing} \\
+      \hldiff{\Nothing \notin \{\fun{txrdmrs}~\var{tx}, i_f\} ~\Rightarrow~ \fun{epochInfoSlotToUTCTime}~\mathsf{ei}~\mathsf{sysSt}~i_f \neq \Nothing} \\
       \txins{txb} \neq \emptyset
       & \hldiff{\fun{feesOK}~pp~tx~utxo}
       & \txins{txb}~\cup~\fun{collateral}~{txb}~ \subseteq~ \dom \var{utxo}

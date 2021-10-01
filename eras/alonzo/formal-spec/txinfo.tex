@@ -274,7 +274,7 @@ $\fun{txInfo}$ summarizes all the necessary transaction and chain state informat
         & ~~~~ \{~\var{tout}_P\mid\var{tout}\in\fun{txouts}~{tx}~\} , \\
         & ~~~~ (\fun{inject}~(\fun{txfee}~{tx}))_P, \\
         & ~~~~ (\fun{mint}~{tx})_P , \\
-        & ~~~~ \{~ c_P \mid c \in \fun{txcerts}~{tx} ~\} , \\
+        & ~~~~ [~ c_P \mid c \in \fun{txcerts}~{tx} ~] , \\
         & ~~~~ \{~(s_P,~c_P)\mid s\mapsto c \in \fun{txwdrls}~{tx}~\} , \\
         & ~~~~ \fun{transVITime} ~pp ~ei~ sysS~ (\fun{txvldt}~tx)  , \\
         & ~~~~ \{~k_P\mid k \in \dom \fun{txwitsVKey}~{tx}~\} , \\
