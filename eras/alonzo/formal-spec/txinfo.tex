@@ -16,13 +16,16 @@ functions between ledger and Plutus types are in Figure \ref{fig:txinfo-translat
 In this Section we use the notation $\type{P.PlutusType}$ for the Plutus type
 $\type{PlutusType}$ (specified in the Plutus library) to distinguish it from ledger types.
 
-We do not specify the translation functions for ledger types which correspond
-exactly in their construction to their Plutus counterparts. Instead, if
-$\type{LT}$ is a ledger type, and $\type{P.LT}$ is the identical Plutus-library, type to
-which elements of $\type{LT}$ must be translated, we denote the default (identity)
-translation function for the $\fun{LT}$ by:
+If $\type{LT}$ is a ledger type, and $\type{P.LT}$ is the corresponding Plutus type to
+which elements of $\type{LT}$ must be translated, we denote the
+translation function by:
 
 \[ \fun{toPlutusType_{LT}} : \type{LT} \to \type{P.LT} \]
+
+As a shorthand, we always write $t_P$ for $\fun{toPlutusType}_{LT}~t$, if $t$ is of type $\type{LT}$.
+
+In many cases this function is simply the identity function, and all
+the cases in which it is not the identity will be described below.
 
 \textbf{Untranslatable Types. }
 Certain types, such as the bootstrap address type, cannot be passed to scripts, and
@@ -135,8 +138,8 @@ Plutus script.
       \ExUnits & \type{P.ExBudget}  \\
     \end{array}
   \end{equation*}
+  \emph{TxInfo} \\
     \begin{align*}
-    & \emph{TxInfo} \\
     & \TxInfo = \\
       & ~~~~ \seqof{\type{P.TxInInfo^?}}  % & \text{inputs} \\ %\type{P.txInfoInputs} &
       & \text{realized inputs} \\
@@ -153,9 +156,9 @@ Plutus script.
       & ~~~~ \times \type{P.POSIXTimeRange}
       & \text{validity interval in POSIX time} \\ % = timeRange, \type{P.txInfoValidRange}
       & ~~~~ \times \seqof{\type{P.PubKeyHash}}
-      & \text{hashes of keys whose signature are required} \\ % = map transKeyHash (Set.toList (reqSignerHashes' tbody)), \type{P.txInfoSignatories}
+      & \text{key hashes of required signatures} \\ % = map transKeyHash (Set.toList (reqSignerHashes' tbody)), \type{P.txInfoSignatories}
       & ~~~~ \times \seqof{(\DataHash \times \Data)}
-      & \text{list of pairs of datum hashes and their datum preimages} \\ % = map transDataPair datpairs, \type{P.txInfoData}
+      & \text{list of datums and their hashes} \\ % = map transDataPair datpairs, \type{P.txInfoData}
       & ~~~~ \times \type{P.TxId}  % =  (transSafeHash (hashAnnotated @(Crypto era) tbody)) \type{P.txInfoId}
       & \text{transaction ID}
   \end{align*}
@@ -165,27 +168,26 @@ Plutus script.
 
 \begin{figure*}[htb]
   \begin{align*}
-    & \fun{transAddr} \in \Addr  \to  \type{P.Address} \\
-    & \fun{transAddr} ~a = \begin{cases}
+    & \fun{toPlutusType}_{\Addr} \in \Addr  \to  \type{P.Address} \\
+    & \fun{toPlutusType}_{\Addr} ~a = \begin{cases}
       \Nothing & \text{if}~a \in \AddrBS \\
-      (ob,~st) & \text{if}~a = (\wcard, \fun{toPlutusType}_{\Credential}~ob,~\fun{toPlutusType}_{\StakeCredential}~st)
+      (ob,~st) & \text{if}~a = (\wcard, ob_P,~st_P)
     \end{cases} \\
     & \text{Address translation}
     \nextdef
-    & \fun{transValue} \in \Value \to \type{P.Value} \\
-    & \fun{transValue}~ (c,~ mp) = \{~ \fun{toPlutusType}_{\PolicyID}~pid\mapsto (\fun{toPlutusType}_{\AssetName}~aid \mapsto \\
-    & ~~~~(\fun{toPlutusType}_{\Quantity}~q)) ~\mid~ pid \mapsto (aid \mapsto q) \in mp ~\} \\
-    & ~~~~\cup \{~\type{P.adaSymbol}\mapsto (\type{P.adaToken} \mapsto (\fun{toPlutusType}_{\Coin}~c)) ~\} \\
+    & \fun{toPlutusType}_{\Value} \in \Value \to \type{P.Value} \\
+    & \fun{toPlutusType}_{\Value}~ (c,~ mp) = \{~ pid_P\mapsto (aid_P \mapsto q_P) \mid pid \mapsto (aid \mapsto q) \in mp ~\} \\
+    & ~~~~\cup \{~\type{P.adaSymbol}\mapsto (\type{P.adaToken} \mapsto c_P) ~\} \\
     & \text{Value translation}
     \nextdef
-    & \fun{transTxOut} \in \TxOut \to \type{P.TxOut} \\
-    & \fun{transTxOut}~ (a, v, h) = (\fun{transAddr} ~a, \fun{transValue}~v, \fun{toPlutusType}_{\DataHash}~h) \\
+    & \fun{toPlutusType}_{\TxOut} \in \TxOut \to \type{P.TxOut} \\
+    & \fun{toPlutusType}_{\TxOut}~ (a, v, h) = (a_P, v_P, h_P) \\
     & \text{Output translation}
     \nextdef
-    & \fun{transDCert} \in \DCert \to \type{P.DCert} \\
-    & \fun{transDCert}~\var{c} = \begin{cases}
+    & \fun{toPlutusType}_{\DCert} \in \DCert \to \type{P.DCert} \\
+    & \fun{toPlutusType}_{\DCert}~\var{c} = \begin{cases}
       (\fun{poolId}~\var{c},~\fun{poolVrf}~\var{c}) & \text{if } \var{c}\in \DCertRegPool \\
-      \fun{toPlutusType}_{\DCert}~c & \text{otherwise}
+      c_P & \text{otherwise}
       \end{cases} \\
     & \text{Certificate translation}
     \nextdef
@@ -268,21 +270,20 @@ $\fun{txInfo}$ summarizes all the necessary transaction and chain state informat
     \begin{align*}
         &\fun{txInfo} \in \Language \to \PParams \to \EpochInfo \to \SystemStart \to \UTxO \to \Tx \to \TxInfo \\
         &\fun{txInfo}~ pp~ ei~ sysS~ utxo~tx = \\
-        & ~~~~ (\{~(\fun{toPlutusType}_{\TxIn}~\var{txin}, \fun{toPlutusType}_{\TxOut}~\var{txout}) ~\mid~\\
-        & ~~~~~~~~ \var{txin}\in \fun{txinputs}~tx,~(\var{txin}\mapsto\var{txout})\in\var{utxo}~\}, \\
-        & ~~~~ \{~\fun{toPlutusType}_{\TxOut}~\var{tout}~\mid~\var{tout}\in\fun{txouts}~{tx}~\} , \\
-        & ~~~~ \fun{transValue}~(\fun{inject}~(\fun{txfee}~{tx})), \\
-        & ~~~~ \fun{transValue}~(\fun{mint}~{tx}) , \\
-        & ~~~~ \fun{map}~\fun{transDCert}~(\fun{txcerts}~{tx}) , \\
-        & ~~~~ \{~(\fun{toPlutusType}_{\StakeCredential}~s,~\fun{toPlutusType}_{\Coin}~c)~\mid~ s\mapsto c\fun{txwdrls}~{tx}~\} , \\
+        & ~~~~ (\{~(\var{txin}_P, \var{txout}_P) \mid \var{txin}\in \fun{txinputs}~tx,~(\var{txin}\mapsto\var{txout})\in\var{utxo}~\}, \\
+        & ~~~~ \{~\var{tout}_P\mid\var{tout}\in\fun{txouts}~{tx}~\} , \\
+        & ~~~~ (\fun{inject}~(\fun{txfee}~{tx}))_P, \\
+        & ~~~~ (\fun{mint}~{tx})_P , \\
+        & ~~~~ \{~ c_P \mid c \in \fun{txcerts}~{tx} ~\} , \\
+        & ~~~~ \{~(s_P,~c_P)\mid s\mapsto c \in \fun{txwdrls}~{tx}~\} , \\
         & ~~~~ \fun{transVITime} ~pp ~ei~ sysS~ (\fun{txvldt}~tx)  , \\
-        & ~~~~ \{~\fun{toPlutusType}_{\KeyHash}~k~\mid~ k\mapsto \wcard\fun{txwitsVKey}~{tx}~\} , \\
-        & ~~~~ \{~(\fun{toPlutusType}_{\DataHash}~h,~\fun{toPlutusType}_{\Data}~d)~\mid~ h\mapsto d\fun{txdats}~{tx}~\} , \\
-        & ~~~~ \fun{toPlutusType}_{\TxId}~(\fun{txid}~{tx})) \\
+        & ~~~~ \{~k_P\mid k \in \dom \fun{txwitsVKey}~{tx}~\} , \\
+        & ~~~~ \{~(h_P,~d_P)\mid h\mapsto d \in \fun{txdats}~{tx}~\} , \\
+        & ~~~~ (\fun{txid}~{tx})_P) \\
         &\text{Summarizes transaction data}
         \nextdef
         &\fun{valContext} \in \type{P.TxInfo} \to \ScriptPurpose \to \Data \\
-        &\fun{valContext}~\var{txinfo}~\var{sp} = \fun{P.toData}~(txinfo,~\fun{toPlutusType}_{\ScriptPurpose}~sp) \\
+        &\fun{valContext}~\var{txinfo}~\var{sp} = \fun{P.toData}~(txinfo,~sp_P) \\
         &\text{Pairs transaction data with a script purpose}
     \end{align*}
   \caption{Transaction Summarization Functions}
